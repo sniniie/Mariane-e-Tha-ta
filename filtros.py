@@ -1,6 +1,22 @@
+import os
+import urllib.request
 import cv2
 import numpy as np
+import onnxruntime as ort
 from PIL import Image
+
+MODELO_PATH = "AnimeGANv2_Hayao.onnx"
+MODELO_URL = "https://github.com/TachibanaYoshino/AnimeGANv2/releases/download/1.0/AnimeGANv2_Hayao.onnx"
+
+_sessao_anime = None
+
+def _carregar_modelo_anime():
+    global _sessao_anime
+    if _sessao_anime is None:
+        if not os.path.exists(MODELO_PATH):
+            urllib.request.urlretrieve(MODELO_URL, MODELO_PATH)
+        _sessao_anime = ort.InferenceSession(MODELO_PATH, providers=["CPUExecutionProvider"])
+    return _sessao_anime
 
 def _converter_para_bgr(imagem):
     img = np.array(imagem)
@@ -13,18 +29,24 @@ def _retornar_rgb(img_bgr):
     return Image.fromarray(img_rgb)
 
 def anime(imagem):
-    img_bgr = _converter_para_bgr(imagem)
-    suavizada = img_bgr.copy()
-    for _ in range(3):
-        suavizada = cv2.bilateralFilter(suavizada, d=9, sigmaColor=75, sigmaSpace=75)
-    n_colors = 64
-    quantizada = (suavizada // n_colors) * n_colors
-    cinza = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-    cinza_blur = cv2.medianBlur(cinza, 7)
-    bordas = cv2.adaptiveThreshold(cinza_blur, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 9, 2)
-    bordas_coloridas = cv2.cvtColor(bordas, cv2.COLOR_GRAY2BGR)
-    resultado = cv2.bitwise_and(quantizada, bordas_coloridas)
-    return _retornar_rgb(resultado)
+    img_rgb = np.array(imagem.convert("RGB"))
+    h, w, _ = img_rgb.shape
+
+    novo_w = max(256, (w // 32) * 32)
+    novo_h = max(256, (h // 32) * 32)
+    img_redim = cv2.resize(img_rgb, (novo_w, novo_h))
+
+    img_input = img_redim.astype(np.float32) / 127.5 - 1.0
+    img_input = np.expand_dims(img_input, axis=0)
+
+    sessao = _carregar_modelo_anime()
+    input_name = sessao.get_inputs()[0].name
+    saida = sessao.run(None, {input_name: img_input})[0][0]
+
+    saida = (saida + 1.0) * 127.5
+    saida = np.clip(saida, 0, 255).astype(np.uint8)
+    saida = cv2.resize(saida, (w, h))
+    return Image.fromarray(saida)
 
 def pixel_art(imagem):
     img_bgr = _converter_para_bgr(imagem)
@@ -56,7 +78,7 @@ def desenho(imagem):
 
 def espelhamento(imagem):
     img_bgr = _converter_para_bgr(imagem)
-    resultado = cv2.flip(img_bgr, 1) # Espelha horizontalmente
+    resultado = cv2.flip(img_bgr, 1)
     return _retornar_rgb(resultado)
 
 def neon(imagem):
