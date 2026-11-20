@@ -64,8 +64,8 @@ def aquarela(imagem):
 
 def desenho(imagem):
     img_bgr = _converter_para_bgr(imagem)
-    _, sketch = cv2.pencilSketch(img_bgr, sigma_s=60, sigma_r=0.07, shade_factor=0.05)
-    resultado = cv2.cvtColor(sketch, cv2.COLOR_GRAY2BGR)
+    cinza, colorido = cv2.pencilSketch(img_bgr, sigma_s=60, sigma_r=0.07, shade_factor=0.05)
+    resultado = cv2.cvtColor(cinza, cv2.COLOR_GRAY2BGR)
     return _retornar_rgb(resultado)
 
 def espelhamento(imagem):
