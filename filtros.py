@@ -90,3 +90,14 @@ def neon(imagem):
     resultado = cv2.cvtColor(sketch, cv2.COLOR_GRAY2BGR)
     resultado = cv2.applyColorMap(resultado, cv2.COLORMAP_JET)
     return _retornar_rgb(resultado)
+
+FILTROS = {
+    "Anime": anime,
+    "Pixel Art": pixel_art,
+    "Cartoon": cartoon,
+    "Aquarela": aquarela,
+    "Desenho": desenho,
+    "Espelhamento": espelhamento,
+    "Neon": neon
+}    
+    
