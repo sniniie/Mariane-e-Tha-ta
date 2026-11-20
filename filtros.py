@@ -1,22 +1,6 @@
-import os
-import urllib.request
 import cv2
 import numpy as np
-import onnxruntime as ort
 from PIL import Image
-
-MODELO_PATH = "AnimeGANv2_Hayao.onnx"
-MODELO_URL = "https://github.com/TachibanaYoshino/AnimeGANv2/releases/download/1.0/AnimeGANv2_Hayao.onnx"
-
-_sessao_anime = None
-
-def _carregar_modelo_anime():
-    global _sessao_anime
-    if _sessao_anime is None:
-        if not os.path.exists(MODELO_PATH):
-            urllib.request.urlretrieve(MODELO_URL, MODELO_PATH)
-        _sessao_anime = ort.InferenceSession(MODELO_PATH, providers=["CPUExecutionProvider"])
-    return _sessao_anime
 
 def _converter_para_bgr(imagem):
     img = np.array(imagem)
@@ -29,24 +13,32 @@ def _retornar_rgb(img_bgr):
     return Image.fromarray(img_rgb)
 
 def anime(imagem):
-    img_rgb = np.array(imagem.convert("RGB"))
-    h, w, _ = img_rgb.shape
-
-    novo_w = max(256, (w // 32) * 32)
-    novo_h = max(256, (h // 32) * 32)
-    img_redim = cv2.resize(img_rgb, (novo_w, novo_h))
-
-    img_input = img_redim.astype(np.float32) / 127.5 - 1.0
-    img_input = np.expand_dims(img_input, axis=0)
-
-    sessao = _carregar_modelo_anime()
-    input_name = sessao.get_inputs()[0].name
-    saida = sessao.run(None, {input_name: img_input})[0][0]
-
-    saida = (saida + 1.0) * 127.5
-    saida = np.clip(saida, 0, 255).astype(np.uint8)
-    saida = cv2.resize(saida, (w, h))
-    return Image.fromarray(saida)
+    img_bgr = _converter_para_bgr(imagem)
+    h, w = img_bgr.shape[:2]
+    
+    # Efeito estilizado de anime usando processamento de imagem avançado do OpenCV
+    num_down = 2
+    num_bilateral = 7
+    
+    img_small = img_bgr
+    for _ in range(num_down):
+        img_small = cv2.pyrDown(img_small)
+        
+    for _ in range(num_bilateral):
+        img_small = cv2.bilateralFilter(img_small, d=9, sigmaColor=9, sigmaSpace=7)
+        
+    for _ in range(num_down):
+        img_small = cv2.pyrUp(img_small)
+        
+    img_small = cv2.resize(img_small, (w, h))
+    
+    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    blur = cv2.medianBlur(gray, 7)
+    edges = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 9, 2)
+    edges = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
+    
+    resultado = cv2.bitwise_and(img_small, edges)
+    return _retornar_rgb(resultado)
 
 def pixel_art(imagem):
     img_bgr = _converter_para_bgr(imagem)
@@ -99,5 +91,4 @@ FILTROS = {
     "Desenho": desenho,
     "Espelhamento": espelhamento,
     "Neon": neon
-}    
-    
+}
