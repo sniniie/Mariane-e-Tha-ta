@@ -14,8 +14,21 @@ def _retornar_rgb(img_bgr):
 
 def anime(imagem):
     img_bgr = _converter_para_bgr(imagem)
-    h, w = img_bgr.shape[:2]
     
+    # Suavização em camadas para achatar a pele e criar o efeito de pintura
+    colorido = img_bgr
+    for _ in range(8):
+        colorido = cv2.bilateralFilter(colorido, d=9, sigmaColor=75, sigmaSpace=75)
+    
+    # Bordas bem mais suaves e limpas para não poluir o rosto
+    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    blur = cv2.medianBlur(gray, 5)
+    edges = cv2.Laplacian(blur, cv2.CV_8U, ksize=5)
+    _, edges = cv2.threshold(edges, 120, 255, cv2.THRESH_BINARY_INV)
+    edges = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
+    
+    resultado = cv2.bitwise_and(colorido, edges)
+    return _retornar_rgb(resultado)
     # Efeito estilizado de anime usando processamento de imagem avançado do OpenCV
     num_down = 2
     num_bilateral = 7
